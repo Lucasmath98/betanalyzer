@@ -181,6 +181,30 @@
   .insight b{color:var(--green);}
   .no-data{color:var(--muted);font-size:12.5px;text-align:center;padding:12px 0;}
 
+  /* ODDS TAB */
+  .odds-key-box{
+    background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:14px;
+  }
+  .odds-key-box .lbl{font-size:12.5px;color:var(--muted);margin-bottom:8px;line-height:1.5;}
+  .odds-key-row{display:flex;gap:8px;}
+  .odds-key-row input{
+    flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--text);
+    padding:10px 12px;border-radius:10px;font-size:13px;outline:none;
+  }
+  .odds-key-row button{background:var(--green);color:#00251a;border:none;border-radius:10px;padding:0 14px;font-weight:800;cursor:pointer;font-size:12.5px;}
+  .odds-key-status{font-size:11.5px;margin-top:8px;color:var(--muted);}
+  .odds-key-status.ok{color:var(--green);}
+  .odds-key-status.err{color:var(--red);}
+  .odds-match-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:13px 14px;margin-bottom:10px;}
+  .odds-match-teams{font-size:14px;font-weight:700;margin-bottom:3px;}
+  .odds-match-time{font-size:11px;color:var(--muted);margin-bottom:10px;}
+  .odds-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+  .odds-cell{background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:8px 6px;text-align:center;}
+  .odds-cell .oc-label{font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px;}
+  .odds-cell .oc-value{font-size:16px;font-weight:800;color:var(--green);}
+  .odds-book{font-size:10.5px;color:#5c7883;text-align:center;margin-top:6px;}
+  .change-key-link{font-size:11.5px;color:var(--green);text-align:right;cursor:pointer;font-weight:700;margin-bottom:10px;}
+
   /* BOTTOM NAV */
   .bottom-nav{
     position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid var(--border);
@@ -208,6 +232,7 @@
     <button class="tab-btn" data-tab="today">📅 Hoje</button>
     <button class="tab-btn" data-tab="results">✅ Resultados</button>
     <button class="tab-btn" data-tab="table">📊 Classificação</button>
+    <button class="tab-btn" data-tab="odds">💰 Odds</button>
     <button class="tab-btn" data-tab="search">🔍 Buscar Time</button>
   </div>
 </header>
@@ -216,7 +241,7 @@
 
 <main>
   <div class="disclaimer">
-    ⚠️ <b>Aviso importante:</b> este app mostra dados <b>reais</b> de jogos, resultados, forma recente e classificação. Não exibimos odds ou probabilidades inventadas — não existe fonte gratuita confiável de odds de apostas. Use as estatísticas como apoio para sua própria análise. Aposte com responsabilidade.
+    ⚠️ <b>Aviso importante:</b> todos os dados deste app são <b>reais</b> — jogos, resultados, forma recente, classificação e odds pré-jogo (via The Odds API). Não inventamos nenhum número. Use as informações como apoio para sua própria análise. Aposte com responsabilidade — se precisar de ajuda, procure a Federação Brasileira de Jogo Responsável.
   </div>
 
   <div id="content"></div>
@@ -235,6 +260,7 @@
   <button class="bn-item" data-tab="today"><span class="ic">📅</span>Hoje</button>
   <button class="bn-item" data-tab="results"><span class="ic">✅</span>Resultados</button>
   <button class="bn-item" data-tab="table"><span class="ic">📊</span>Tabela</button>
+  <button class="bn-item" data-tab="odds"><span class="ic">💰</span>Odds</button>
   <button class="bn-item" data-tab="search"><span class="ic">🔍</span>Buscar</button>
 </nav>
 
@@ -242,15 +268,21 @@
 const API = "https://www.thesportsdb.com/api/v1/json/3";
 
 const LEAGUES = [
-  { id: "4328", name: "Premier League", flag:"🏴" },
-  { id: "4335", name: "La Liga", flag:"🇪🇸" },
-  { id: "4332", name: "Serie A", flag:"🇮🇹" },
-  { id: "4331", name: "Bundesliga", flag:"🇩🇪" },
-  { id: "4334", name: "Ligue 1", flag:"🇫🇷" },
-  { id: "4351", name: "Brasileirão", flag:"🇧🇷" },
-  { id: "4480", name: "Champions League", flag:"⭐" },
-  { id: "4346", name: "MLS", flag:"🇺🇸" },
+  { id: "4328", name: "Premier League", flag:"🏴", oddsKey:"soccer_epl" },
+  { id: "4335", name: "La Liga", flag:"🇪🇸", oddsKey:"soccer_spain_la_liga" },
+  { id: "4332", name: "Serie A", flag:"🇮🇹", oddsKey:"soccer_italy_serie_a" },
+  { id: "4331", name: "Bundesliga", flag:"🇩🇪", oddsKey:"soccer_germany_bundesliga" },
+  { id: "4334", name: "Ligue 1", flag:"🇫🇷", oddsKey:"soccer_france_ligue_one" },
+  { id: "4351", name: "Brasileirão", flag:"🇧🇷", oddsKey:"soccer_brazil_campeonato" },
+  { id: "4480", name: "Champions League", flag:"⭐", oddsKey:"soccer_uefa_champs_league" },
+  { id: "4346", name: "MLS", flag:"🇺🇸", oddsKey:"soccer_usa_mls" },
 ];
+
+const ODDS_API_BASE = "https://api.the-odds-api.com/v4";
+const ODDS_KEY_STORAGE = "betanalyzer_odds_api_key";
+function getOddsKey(){ try{ return localStorage.getItem(ODDS_KEY_STORAGE) || ""; }catch(e){ return ""; } }
+function setOddsKey(k){ try{ localStorage.setItem(ODDS_KEY_STORAGE, k); }catch(e){} }
+function clearOddsKey(){ try{ localStorage.removeItem(ODDS_KEY_STORAGE); }catch(e){} }
 
 let currentLeague = LEAGUES[0].id;
 let currentTab = "live";
@@ -436,6 +468,97 @@ async function loadTable(){
   `;
 }
 
+function oddsKeyBoxHTML(status){
+  return `
+    <div class="odds-key-box">
+      <div class="lbl">💰 Odds pré-jogo reais das casas de aposta (via The Odds API — plano grátis, 500 consultas/mês). Cole sua chave gratuita abaixo. <a href="https://the-odds-api.com/" target="_blank" style="color:var(--green);">Pegar chave grátis →</a></div>
+      <div class="odds-key-row">
+        <input type="text" id="oddsKeyInput" placeholder="Cole sua API key aqui" value="${getOddsKey()}" />
+        <button id="oddsKeySave">Salvar</button>
+      </div>
+      ${status ? `<div class="odds-key-status ${status.cls}">${status.msg}</div>` : ""}
+    </div>
+  `;
+}
+
+async function loadOdds(){
+  const content = $("#content");
+  const league = LEAGUES.find(l=>l.id===currentLeague);
+  const key = getOddsKey();
+
+  if(!key){
+    content.innerHTML = oddsKeyBoxHTML();
+    $("#oddsKeySave").onclick = ()=>{
+      const v = $("#oddsKeyInput").value.trim();
+      if(v){ setOddsKey(v); loadOdds(); }
+    };
+    return;
+  }
+
+  content.innerHTML = oddsKeyBoxHTML() + loading();
+  $("#oddsKeySave").onclick = ()=>{
+    const v = $("#oddsKeyInput").value.trim();
+    if(v){ setOddsKey(v); loadOdds(); }
+  };
+
+  const url = `${ODDS_API_BASE}/sports/${league.oddsKey}/odds/?apiKey=${encodeURIComponent(key)}&regions=eu&markets=h2h&oddsFormat=decimal`;
+  let res, data;
+  try{
+    res = await fetch(url);
+    data = await res.json();
+  }catch(e){
+    content.innerHTML = oddsKeyBoxHTML({cls:"err", msg:"⚠️ Não foi possível conectar à The Odds API agora."});
+    return;
+  }
+
+  if(!res.ok){
+    const msg = (data && data.message) ? data.message : "Chave inválida ou limite de consultas atingido.";
+    content.innerHTML = oddsKeyBoxHTML({cls:"err", msg:`⚠️ ${msg}`}) ;
+    return;
+  }
+
+  if(!data || !data.length){
+    content.innerHTML = `
+      <div class="change-key-link" id="changeKeyLink">🔑 trocar chave</div>
+      <div class="section-title">Odds Pré-Jogo — ${league.name}</div>
+      ${empty("Nenhum jogo com odds disponível para esta liga no momento.","💰")}
+    `;
+    $("#changeKeyLink").onclick = ()=>{ clearOddsKey(); loadOdds(); };
+    return;
+  }
+
+  const cards = data.map(ev=>{
+    const bk = ev.bookmakers && ev.bookmakers[0];
+    const market = bk && bk.markets && bk.markets.find(m=>m.key==="h2h");
+    if(!market) return "";
+    const outcomes = market.outcomes;
+    const home = outcomes.find(o=>o.name===ev.home_team);
+    const away = outcomes.find(o=>o.name===ev.away_team);
+    const draw = outcomes.find(o=>o.name==="Draw");
+    const dt = new Date(ev.commence_time);
+    const dateStr = dt.toLocaleString('pt-BR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
+    return `
+      <div class="odds-match-card">
+        <div class="odds-match-teams">${ev.home_team} <span style="color:var(--muted);">x</span> ${ev.away_team}</div>
+        <div class="odds-match-time">🗓️ ${dateStr}</div>
+        <div class="odds-grid">
+          <div class="odds-cell"><div class="oc-label">Casa</div><div class="oc-value">${home ? home.price.toFixed(2) : '-'}</div></div>
+          <div class="odds-cell"><div class="oc-label">Empate</div><div class="oc-value">${draw ? draw.price.toFixed(2) : '-'}</div></div>
+          <div class="odds-cell"><div class="oc-label">Fora</div><div class="oc-value">${away ? away.price.toFixed(2) : '-'}</div></div>
+        </div>
+        <div class="odds-book">via ${bk.title}${ev.bookmakers.length>1 ? ` + ${ev.bookmakers.length-1} outra(s) casa(s)` : ''}</div>
+      </div>
+    `;
+  }).join("");
+
+  content.innerHTML = `
+    <div class="change-key-link" id="changeKeyLink">🔑 trocar chave</div>
+    <div class="section-title">Odds Pré-Jogo — ${league.name} <span class="updated">dados reais de casas de apostas</span></div>
+    ${cards || empty("Sem mercados de odds disponíveis no momento.","💰")}
+  `;
+  $("#changeKeyLink").onclick = ()=>{ clearOddsKey(); loadOdds(); };
+}
+
 function loadSearch(){
   const content = $("#content");
   content.innerHTML = `
@@ -616,6 +739,7 @@ function loadTab(tab){
   else if(tab==="today") loadToday();
   else if(tab==="results") loadResults();
   else if(tab==="table") loadTable();
+  else if(tab==="odds") loadOdds();
   else if(tab==="search") loadSearch();
 }
 
